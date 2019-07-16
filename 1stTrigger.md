@@ -20,21 +20,54 @@ Site uses select statement with Customer string against SQL. The field/column fo
 
 #### Proposed Solution: 
 
-SQL Trigger: After an insert into inventory and the customer value is blank have the trigger query other_table and use the value xyz to search against customer_id where iscustomer_key is Y. Grab the agency_id and then update inventory.agency with the value gathered. If agency_id is blank then end trigger and take no action.
+SQL Trigger: After an insert into TableA and the customer_id value is blank have the trigger query TableB and use the ownerid to search against customer_id where iscustomer_key is Y. Grab the customer and then update TableA.customer_id with the value gathered. 
 
 
-create table Customers (
-id INTEGER PRIMARY KEY,
-first_name TEXT,
-last_name varchar(20),
-age integer
-)
+
+```
+---- =============================================
+---- Author:		Hans Fernandez
+---- Create date: 07-11-2019
+---- Description:	Website needs agency field filled in to display customer search results correctly. This trigger populates agency code when new record is inserted if blank
+---- =============================================
 
 
-create trigger MyTrigger
-on Customers
-after insert
-as
-begin
-  Print 'Hello World'
-end
+CREATE TRIGGER tr_add_customerid ON Customers
+AFTER INSERT
+AS
+BEGIN
+	DECLARE @referenceid INT;
+	DECLARE @OwnerId INT;
+	DECLARE @AgencyCode VARCHAR(4);
+
+	SELECT @OwnerId = owner_id, @AgencyCode = agency FROM inserted;
+
+	IF(RTRIM(@AgencyCode) ='')
+	BEGIN
+		/****Get primary key of new record****/
+		SELECT @referenceid = @@IDENTITY;
+
+		/*** If the new agency code is blank, try to pull from TableB ***/
+		SELECT top 1 @AgencyCode = agencyid 
+		FROM TableB 
+		WHERE TableB.rec_id = @OwnerId
+		and TableB.iscustomer_key = 'Y'
+		and TableB.agencyid != ' '
+
+		/*** Update new record if Agency Code was retrieved ***/
+		IF(RTRIM(@AgencyCode) !=''
+		AND
+			@AgencyCode is not null)
+		BEGIN
+			UPDATE Customers
+			SET agency = @AgencyCode
+			WHERE vehi_id = @referenceid
+
+			--Print 'Agency Code Updated';
+			--SELECT agency,* FROM Customers WHERE vehi_id = @referenceid;
+		END
+	END
+END
+
+GO
+```
